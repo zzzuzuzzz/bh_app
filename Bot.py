@@ -2,6 +2,7 @@ import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
 from vk_api.keyboard import VkKeyboard
+import Sql
 
 
 # token = 'vk1.a.-QHwbJAI2dDNDaChBFEzMajbLtDa8uRk_6e7KUKJ78XlOHsvy3TZruMMZEhYC49qHl1VQx2Iq9FattQdMBqVQ0Zb5sI3qa2bFL-0qHsukOJRvdUYDQlFutvMIcRSoEnLX52jlHvwzgTeDLB0xqKYdtOEq4Y-ARnHYvmVHvTD5SCJ6VsVdGa9732tyePFp6zjhJ1kqWlWzExWP5AvpTQVVw'
@@ -9,14 +10,12 @@ token = 'vk1.a.vVTUL3FEmGVCpJb_JxI-NsmJcQt4ImcCWmxvPbpJT5uPM3YXk18defZw2UrV8k-Ah
 session = vk_api.VkApi(token = token)
 list_of_users_in_vacation = []
 list_of_users_in_service = []
-list_of_auth_users = []
-list_of_users = {}
-
-
+list_of_auth_users = Sql.select_all_from_users()
+list_of_admins = [198556652, 10719684]
 
 
 class Game:
-    list_of_game = []
+    list_of_game = [['тренировка', '03.04.2024', '30.03.2024 18:00', [198556652], [], [], []]]
 
     def set_data(self, first_value, second_value, last_value):
         self.list_of_game.append([first_value, second_value, last_value, [], [], [], []])
@@ -72,44 +71,43 @@ for event in VkLongPoll(session).listen():
         keyboard = VkKeyboard(one_time=True)
 
         if text == 'start':
-            if list_of_auth_users.count(user_id):
+            if Sql.search_id_in_users(user_id):
                 keyboard.add_button('опросы')
+                keyboard.add_line()
                 if name_state == False:
                     keyboard.add_button('указать свой позывной')
-                keyboard.add_line()
-                keyboard.add_button('в отпуске')
-                keyboard.add_button('в строю')
-                send_msg(user_id, 'Укажите свой статус и позывной, если еще не указывали', keyboard)
+                # keyboard.add_button('в отпуске')
+                # keyboard.add_button('в строю')
+                send_msg(user_id, 'Укажите свой позывной, если еще не указывали', keyboard)
             else:
                 keyboard.add_button('подписаться')
                 send_msg(user_id, 'Вам нужно подписаться', keyboard)
 
         if text == 'подписаться':
-            list_of_auth_users.append(user_id)
-            send_msg(user_id, 'Вы успешно подписаны')
+            send_msg(user_id, Sql.insert_in_user(user_id))
 
-        if text == 'указать свой позывной' and list_of_auth_users.count(user_id):
+        if text == 'указать свой позывной' and Sql.search_id_in_users(user_id):
             send_msg(user_id, 'Напишите свой позывной с маленькой буквы')
             name_state = True
 
         if name_state == True and text != 'указать свой позывной' and text != ' ':
-            list_of_users[user_id] = text
+            Sql.insert_in_user_name(user_id, text)
             name_state = False
             send_msg(user_id, 'Ваш позывной сохранен')
 
-        if text == 'в отпуске' and list_of_auth_users.count(user_id):
-            if list_of_users_in_service.count(user_id):
-                list_of_users_in_service.remove(user_id)
-            list_of_users_in_vacation.append(user_id)
-            send_msg(user_id, 'Статус сохранен')
+        # if text == 'в отпуске' and Sql.search_id_in_users(user_id):
+        #     if list_of_users_in_service.count(user_id):
+        #         list_of_users_in_service.remove(user_id)
+        #     list_of_users_in_vacation.append(user_id)
+        #     send_msg(user_id, 'Статус сохранен')
+        #
+        # if text == 'в строю' and Sql.search_id_in_users(user_id):
+        #     if list_of_users_in_vacation.count(user_id):
+        #         list_of_users_in_vacation.remove(user_id)
+        #     list_of_users_in_service.append(user_id)
+        #     send_msg(user_id, 'Статус сохранен')
 
-        if text == 'в строю' and list_of_auth_users.count(user_id):
-            if list_of_users_in_vacation.count(user_id):
-                list_of_users_in_vacation.remove(user_id)
-            list_of_users_in_service.append(user_id)
-            send_msg(user_id, 'Статус сохранен')
-
-        if text == 'опросы' and list_of_auth_users.count(user_id):
+        if text == 'опросы' and Sql.search_id_in_users(user_id):
             if game.list_of_game == []:
                 send_msg(user_id, 'Опросов нет')
             else:
@@ -125,7 +123,7 @@ for event in VkLongPoll(session).listen():
                     keyboard.add_button(element)
                 send_msg(user_id, 'Выберете нужный Вам опрос', keyboard)
 
-        if text == 'посмотреть мои ответы в опросах' and list_of_auth_users.count(user_id):
+        if text == 'посмотреть мои ответы в опросах' and Sql.search_id_in_users(user_id):
             if game.list_of_game == []:
                 send_msg(user_id, 'Опросов нет')
             else:
@@ -141,7 +139,7 @@ for event in VkLongPoll(session).listen():
                     else:
                         send_msg(user_id, element[0] + ' ' + element[1] + ' - вы не проголосовали')
 
-        if game.get_names().count(text) and list_of_auth_users.count(user_id) and delete_state == False and view_game_bool == False:
+        if game.get_names().count(text) and Sql.search_id_in_users(user_id) and delete_state == False and view_game_bool == False:
             ask_state = text
             time_value = ''
             for element in game.list_of_game:
@@ -157,7 +155,7 @@ for event in VkLongPoll(session).listen():
             send_msg(user_id, 'Вы перешли в опрос игры"' + ask_state + '". Думать можно до ' + time_value, keyboard)
             time_value = ''
 
-        if text == 'еду' and ask_state != '' and list_of_auth_users.count(user_id):
+        if text == 'еду' and ask_state != '' and Sql.search_id_in_users(user_id):
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == ask_state:
                     element[3].append(user_id)
@@ -170,7 +168,7 @@ for event in VkLongPoll(session).listen():
             send_msg(user_id, 'Выбран вариант "еду"')
             print(game.list_of_game)
 
-        if text == 'еду - водитель' and ask_state != '' and list_of_auth_users.count(user_id):
+        if text == 'еду - водитель' and ask_state != '' and Sql.search_id_in_users(user_id):
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == ask_state:
                     element[4].append(user_id)
@@ -183,7 +181,7 @@ for event in VkLongPoll(session).listen():
             send_msg(user_id, 'Выбран вариант "еду - водитель"')
             print(game.list_of_game)
 
-        if text == 'не еду' and ask_state != '' and list_of_auth_users.count(user_id):
+        if text == 'не еду' and ask_state != '' and Sql.search_id_in_users(user_id):
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == ask_state:
                     element[5].append(user_id)
@@ -196,7 +194,7 @@ for event in VkLongPoll(session).listen():
             send_msg(user_id, 'Выбран вариант "не еду"')
             print(game.list_of_game)
 
-        if text == 'думаю' and ask_state != '' and list_of_auth_users.count(user_id):
+        if text == 'думаю' and ask_state != '' and Sql.search_id_in_users(user_id):
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == ask_state:
                     element[6].append(user_id)
@@ -209,7 +207,7 @@ for event in VkLongPoll(session).listen():
             send_msg(user_id, 'Выбран вариант "думаю"')
             print(game.list_of_game)
 
-        if text == 'админ панель' and user_id == 198556652:
+        if text == 'админ панель' and list_of_admins.count(user_id):
             keyboard.add_button('создать опрос')
             keyboard.add_line()
             keyboard.add_button('посмотреть результаты опроса')
@@ -217,11 +215,11 @@ for event in VkLongPoll(session).listen():
             keyboard.add_button('удалить опрос')
             send_msg(user_id, 'Вы в админ панеле', keyboard)
 
-        if text == 'создать опрос' and user_id == 198556652:
+        if text == 'создать опрос' and list_of_admins.count(user_id):
             send_msg(user_id, 'Введите название игры, дату проведения игры, дату и время "думаю до", разделяя знаком ";" (пример: Тренировка ; 03.04.2024 ; 30.03.2024 18:00)')
             game_bool = True
 
-        if game_bool == True and user_id == 198556652 and text != 'да' and text != 'нет' and text != 'создать опрос':
+        if game_bool == True and list_of_admins.count(user_id) and text != 'да' and text != 'нет' and text != 'создать опрос':
             result = text.split(' ; ')
             game_name_value = result[0]
             game_time_value = result[1]
@@ -230,7 +228,7 @@ for event in VkLongPoll(session).listen():
             keyboard.add_button('нет')
             send_msg(user_id, 'Название игры: ' + game_name_value + '. Дата игры: ' + game_time_value + '. Дата пункта "думаю до": ' + game_ask_time_value + '. Все верно?', keyboard)
 
-        if game_bool == True and user_id == 198556652 and text == 'да' and text != 'нет':
+        if game_bool == True and list_of_admins.count(user_id) and text == 'да' and text != 'нет':
             game.set_data(result[0], result[1], result[2])
             game_name_value = ''
             game_time_value = ''
@@ -240,14 +238,14 @@ for event in VkLongPoll(session).listen():
             for user in list_of_auth_users:
                 send_msg(user, 'Создан новый опрос')
 
-        if game_bool == True and user_id == 198556652 and text != 'да' and text == 'нет':
+        if game_bool == True and list_of_admins.count(user_id) and text != 'да' and text == 'нет':
             game_name_value = ''
             game_time_value = ''
             game_ask_time_value = ''
             game_bool = False
             send_msg(user_id, 'Создайте опрос еще раз')
 
-        if text == 'удалить опрос' and user_id == 198556652:
+        if text == 'удалить опрос' and list_of_admins.count(user_id):
             if game.list_of_game == []:
                 send_msg(user_id, 'Опросов нет')
             else:
@@ -262,7 +260,7 @@ for event in VkLongPoll(session).listen():
                 send_msg(user_id, 'выберете опрос, который хотите удалить', keyboard)
                 delete_state = True
 
-        if game.get_names().count(text) and delete_state == True and user_id == 198556652 and text != 'выберете опрос, который хотите удалить':
+        if game.get_names().count(text) and delete_state == True and list_of_admins.count(user_id) and text != 'выберете опрос, который хотите удалить':
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == text:
                     game.list_of_game.remove(element)
@@ -270,7 +268,7 @@ for event in VkLongPoll(session).listen():
             delete_state = False
             print(game.list_of_game)
 
-        if text == 'посмотреть результаты опроса' and user_id == 198556652:
+        if text == 'посмотреть результаты опроса' and list_of_admins.count(user_id):
             if game.list_of_game == []:
                 send_msg(user_id, 'Опросов нет')
             else:
@@ -285,29 +283,29 @@ for event in VkLongPoll(session).listen():
                 send_msg(user_id, 'выберете опрос, результаты которого хотите посмотреть', keyboard)
                 view_game_bool = True
 
-        if game.get_names().count(text) and view_game_bool == True and user_id == 198556652 and text != 'выберете опрос, результаты которого хотите посмотреть':
+        if game.get_names().count(text) and view_game_bool == True and list_of_admins.count(user_id) and text != 'выберете опрос, результаты которого хотите посмотреть':
             for element in game.list_of_game:
                 if element[0] + ' ' + element[1] == text:
                     time_array = []
                     send_msg(user_id, 'Едут:')
                     for el in element[3]:
-                        send_msg(user_id, list_of_users[el])
+                        send_msg(user_id, Sql.search_id_in_users_name(el))
                         time_array.append(el)
                     send_msg(user_id, 'Едут - водители:')
                     for el in element[4]:
-                        send_msg(user_id, list_of_users[el])
+                        send_msg(user_id, Sql.search_id_in_users_name(el))
                         time_array.append(el)
                     send_msg(user_id, 'Не едут:')
                     for el in element[5]:
-                        send_msg(user_id, list_of_users[el])
+                        send_msg(user_id, Sql.search_id_in_users_name(el))
                         time_array.append(el)
                     send_msg(user_id, 'Думают:')
                     for el in element[6]:
-                        send_msg(user_id, list_of_users[el])
+                        send_msg(user_id, Sql.search_id_in_users_name(el))
                         time_array.append(el)
                     for el in list_of_auth_users:
-                        if time_array.count(el) == 0:
-                            send_msg(user_id, list_of_users[el] + ' - не проголосовал')
+                        if time_array.count(el[0]) == 0:
+                            send_msg(user_id, Sql.search_id_in_users_name(el[0]) + ' - Не проголосовал')
             send_msg(user_id, 'конец списка')
             view_game_bool = False
 
